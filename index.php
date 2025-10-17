@@ -1,30 +1,15 @@
 <?php
-// File to store chat messages
-$messagesFile = 'messages.txt';
+session_start();
 
-// Handle new message submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['message'])) {
-    // Sanitize the input to prevent HTML injection
-    $msg = strip_tags(trim($_POST['message']));
-    $msg = htmlspecialchars($msg, ENT_QUOTES, 'UTF-8');
-
-    // Append the message with a timestamp
-    $entry = date('Y-m-d H:i:s') . ' - ' . $msg . PHP_EOL;
-
-    // Save to file (append mode)
-    file_put_contents($messagesFile, $entry, FILE_APPEND | LOCK_EX);
-
-    // Redirect to avoid resubmission on reload
-    header('Location: ' . $_SERVER['PHP_SELF']);
-    exit;
+// Initialize messages array in session if not set
+if (!isset($_SESSION['messages'])) {
+    $_SESSION['messages'] = [];
 }
 
-// Load existing messages
-$messages = '';
-if (file_exists($messagesFile)) {
-    $messages = file_get_contents($messagesFile);
-    // Convert new lines to <br> for display
-    $messages = nl2br($messages);
+// When form is submitted
+if (isset($_POST['message']) && trim($_POST['message']) !== '') {
+    $msg = htmlspecialchars(trim($_POST['message']));
+    $_SESSION['messages'][] = $msg;
 }
 ?>
 
@@ -32,18 +17,22 @@ if (file_exists($messagesFile)) {
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>Simple PHP Chat</title>
+    <title>Simple Chat</title>
 </head>
 <body>
-    <h1>Simple PHP Chat</h1>
-
-    <div style="border:1px solid #ccc; padding:10px; width: 400px; height: 300px; overflow-y: scroll; background:#f9f9f9;">
-        <?= $messages ?: 'No messages yet.' ?>
-    </div>
-
-    <form method="post" action="">
-        <input type="text" name="message" placeholder="Type your message" required style="width:300px;" />
+    <h2>Simple PHP Chat</h2>
+    <form method="post">
+        <input type="text" name="message" placeholder="Type your message" autofocus required />
         <button type="submit">Send</button>
     </form>
+
+    <h3>Messages:</h3>
+    <div style="border:1px solid #ccc; padding:10px; width:300px; height:200px; overflow-y:scroll;">
+        <?php
+        foreach ($_SESSION['messages'] as $message) {
+            echo htmlspecialchars($message) . "<br>";
+        }
+        ?>
+    </div>
 </body>
 </html>
