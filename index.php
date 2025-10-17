@@ -1,53 +1,49 @@
 <?php
-require __DIR__ . '/vendor/autoload.php';
+// File to store chat messages
+$messagesFile = 'messages.txt';
 
-use Ratchet\MessageComponentInterface;
-use Ratchet\ConnectionInterface;
+// Handle new message submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['message'])) {
+    // Sanitize the input to prevent HTML injection
+    $msg = strip_tags(trim($_POST['message']));
+    $msg = htmlspecialchars($msg, ENT_QUOTES, 'UTF-8');
 
-class Chat implements MessageComponentInterface {
-    protected $clients;
+    // Append the message with a timestamp
+    $entry = date('Y-m-d H:i:s') . ' - ' . $msg . PHP_EOL;
 
-    public function __construct() {
-        $this->clients = new \SplObjectStorage;
-    }
+    // Save to file (append mode)
+    file_put_contents($messagesFile, $entry, FILE_APPEND | LOCK_EX);
 
-    public function onOpen(ConnectionInterface $conn) {
-        // Store the new connection
-        $this->clients->attach($conn);
-        echo "New connection: ({$conn->resourceId})\n";
-    }
-
-    public function onMessage(ConnectionInterface $from, $msg) {
-        $numRecv = count($this->clients) - 1;
-        echo sprintf('Connection %d sending message "%s" to %d other connection%s' . "\n",
-            $from->resourceId, $msg, $numRecv, $numRecv == 1 ? '' : 's');
-
-        foreach ($this->clients as $client) {
-            // Send message to everyone including sender
-            $client->send($msg);
-        }
-    }
-
-    public function onClose(ConnectionInterface $conn) {
-        // The connection is closed, remove it
-        $this->clients->detach($conn);
-        echo "Connection {$conn->resourceId} has disconnected\n";
-    }
-
-    public function onError(ConnectionInterface $conn, \Exception $e) {
-        echo "Error: {$e->getMessage()}\n";
-        $conn->close();
-    }
+    // Redirect to avoid resubmission on reload
+    header('Location: ' . $_SERVER['PHP_SELF']);
+    exit;
 }
 
-// Run the server
-use Ratchet\Server\IoServer;
+// Load existing messages
+$messages = '';
+if (file_exists($messagesFile)) {
+    $messages = file_get_contents($messagesFile);
+    // Convert new lines to <br> for display
+    $messages = nl2br($messages);
+}
+?>
 
-$server = IoServer::factory(
-    new Chat(),
-    8080
-);
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Simple PHP Chat</title>
+</head>
+<body>
+    <h1>Simple PHP Chat</h1>
 
-echo "WebSocket server started on port 8080\n";
+    <div style="border:1px solid #ccc; padding:10px; width: 400px; height: 300px; overflow-y: scroll; background:#f9f9f9;">
+        <?= $messages ?: 'No messages yet.' ?>
+    </div>
 
-$server->run();
+    <form method="post" action="">
+        <input type="text" name="message" placeholder="Type your message" required style="width:300px;" />
+        <button type="submit">Send</button>
+    </form>
+</body>
+</html>
